@@ -2,3 +2,11 @@ data/
 Keim19_Odea_Redshift.png
 catalogues/j032237_atca_5GHz.csv
 catalogues/j032237_atca_8GHz.csv
+plots/J022744_sed.png
+.gitignore
+plots/J223933_sed.png
+plots/J022744_sed.pdf
+plots/J032237_sed.png
+catalogues/j0227-0621_atca.fits
+catalogues/j2239-451_atca.fits
+catalogues/j0227-0621_atca2020.fits
