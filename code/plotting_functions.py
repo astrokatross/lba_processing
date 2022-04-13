@@ -5,6 +5,18 @@ import matplotlib.pyplot as plt
 import cmasher as cmr
 import CFigTools.CustomFigure as CF
 import pandas as pd 
+from astropy.table import Table
+
+channel = ("69", "93", "121", "145", "169")
+subchans_dict = {
+    "69": ["072-080", "080-088", "088-095", "095-103"],
+    "93": ["103-111", "111-118", "118-126", "126-134"],
+    "121": ["139-147", "147-154", "154-162", "162-170"],
+    "145": ["170-177", "177-185", "185-193", "193-200"],
+    "169": ["200-208", "208-216", "216-223", "223-231"],
+}
+epochs = ["2020-04", "2020-05", "2020-07", "2020-10"]
+
 
 def plt_sed(
     save_dir,
@@ -83,7 +95,7 @@ def plt_sed(
     # lba = [46:48]
 
     target = src_dict["MWA Name"].strip("GLEAM ")[0:7]
-    lba_colors = cmr.take_cmap_colors("cmr.flamingo", 3, cmap_range=(0.15, 0.8), return_fmt="hex")
+    lba_colors = cmr.take_cmap_colors("cmr.freeze", 3, cmap_range=(0.15, 0.8), return_fmt="hex")
     if papersize is True:
         figsize=(3.5, 2.25)
         fontsize=8
@@ -154,6 +166,20 @@ def plt_sed(
         capsize=capsize,
     )
 
+    # Plotting MWA 2020 Monitoring 
+    for i in range(len(epochs)):
+        f.plot_spectrum(
+            frequency[0:20],
+            src_dict[f"flx_mwa_{epochs[i]}"],
+            src_dict[f"err_mwa_{epochs[i]}"],
+            marker="o",
+            label=epochs[i],
+            marker_color=colors[i+4],
+            s=s,
+            alpha=1,
+            elinewidth=elinewidth,
+            capsize=capsize,
+        )
     # Plotting ATCA spectrum 
     try:
         f.plot_spectrum(
@@ -266,3 +292,113 @@ def read_fluxes(mask_nms, master_data_dir="/data/raw_data/", mwa_targets = ["GLE
     lba_master_pop = master_pop_pd[lba_mask]
     lba_pop = lba_master_pop[mask_nms]
     return lba_pop
+
+def make_src_dict(lba_pop_pd, data_dir = "/data/LBA/catalogues/", lba_targets = ["j0227-0621", "j0322-482", "j2239-451"], mwa_targets = ["GLEAM J022744-062106", "GLEAM J032237-482010", "GLEAM J223933-451414"]):
+    src_dict = {}
+    for i in range(len(mwa_targets)):
+        mask_nms, mwa_13, mwa_14, xtra_nms = make_nm_arrays()
+        
+        # MWA: Adding the 13 and 14 fluxes 
+        tar = lba_targets[i]
+        src = {}
+        src["MWA Name"] = mwa_targets[i]
+        src_13_fluxes = np.squeeze(lba_pop_pd.loc[lba_pop_pd["Name"]==mwa_targets[i]][mwa_13[0]].to_numpy())
+        src_13_errs = np.squeeze(lba_pop_pd.loc[lba_pop_pd["Name"]==mwa_targets[i]][mwa_13[1]].to_numpy())
+        src_14_fluxes = np.squeeze(lba_pop_pd.loc[lba_pop_pd["Name"]==mwa_targets[i]][mwa_14[0]].to_numpy())
+        src_14_errs = np.squeeze(lba_pop_pd.loc[lba_pop_pd["Name"]==mwa_targets[i]][mwa_14[1]].to_numpy())
+        src_14_errs = np.insert(src_14_errs, 0, [np.nan, np.nan, np.nan, np.nan])
+        src_14_fluxes = np.insert(src_14_fluxes, 0, [np.nan, np.nan, np.nan, np.nan])
+        src["flx_mwa_13"] = src_13_fluxes
+        src["flx_mwa_14"] = src_14_fluxes
+        src["err_mwa_13"] = src_13_errs
+        src["err_mwa_14"] = src_14_errs
+
+        # MWA: Adding 2020 monitoring fluxes
+        mwa_tar = mwa_targets[i].strip("GLEAM ")[0:7]
+        for j in range(len(epochs)):
+            epoch = epochs[j]
+            chan_flux = []
+            err_chan_flux = []
+            for c in range(len(channel)):
+                subchans = subchans_dict[channel[c]]
+                chan = channel[c]
+                if epoch == "2020-04":
+                    percentage = 0.05
+                else:
+                    percentage = 0.02
+                for subchan in subchans:
+                    try:
+                        src_mwa_pd = pd.read_csv(
+                            f"/data/MWA/{epoch}/{chan}/minimosaic/{mwa_tar}_{subchan}MHz_ddmod_scaled_comp_xmatch.csv"
+                        )
+                        mask = src_mwa_pd["Name"] == mwa_targets[i]
+                        src_pd = src_mwa_pd[mask]
+                        if src_pd.empty is False:
+                            mwa_flux_chan = np.squeeze(src_pd["int_flux"].values)
+                            mwa_errs_chan = np.squeeze(
+                                np.sqrt(src_pd["local_rms"]) ** 2
+                                + (percentage * mwa_flux_chan) ** 2
+                            )
+                            chan_flux.append(mwa_flux_chan)
+                            err_chan_flux.append(mwa_errs_chan)
+                        else:
+                            chan_flux.append(np.nan)
+                            err_chan_flux.append(np.nan)
+                            pass
+                    except (FileNotFoundError, KeyError):
+                        chan_flux.append(np.nan)
+                        err_chan_flux.append(np.nan)
+                        pass
+
+            src[f"flx_mwa_{epoch}"] = np.squeeze(chan_flux)
+            src[f"err_mwa_{epoch}"] = np.squeeze(err_chan_flux)
+
+        # SUPP: Adding the fluxes of supplementary surveys
+        extra_fluxes = np.squeeze(lba_pop_pd.loc[lba_pop_pd["Name"]==mwa_targets[i]][xtra_nms].to_numpy())
+        extra_fluxes[0] = extra_fluxes[0]*0.001
+        extra_fluxes[2] = extra_fluxes[2]*0.001
+        extra_fluxes[3] = extra_fluxes[3]*0.001
+        extra_fluxes[5] = extra_fluxes[5]*0.001
+        extra_fluxes[6] = extra_fluxes[6]*0.001
+        extra_fluxes[7] = extra_fluxes[7]*0.001
+        extra_fluxes[8] = extra_fluxes[8]*0.001
+        src["flx_supp"] = extra_fluxes
+
+        # LBA: Adding the LBA fluxes for each region 
+        try:
+            t = Table.read(f"{data_dir}{tar}_2GHz.fits")
+            lba_2ghz_flux = np.squeeze(np.array(t["int_flux"]))
+            lba_2ghz_rms = np.squeeze(np.array(t["local_rms"]))
+        except FileNotFoundError:
+            print(f"No catalogue for {tar} 2GHz")
+            lba_2ghz_flux = np.nan
+            lba_2ghz_rms = np.nan
+        try:
+            t = Table.read(f"{data_dir}{tar}_8GHz.fits")
+            lba_8ghz_flux = np.squeeze(np.array(t["int_flux"]))
+            lba_8ghz_rms = np.squeeze(np.array(t["local_rms"]))
+        except FileNotFoundError:
+            print(f"No catalogue for {tar} 8GHz")
+            lba_8ghz_flux = np.nan
+            lba_8ghz_rms = np.nan
+        src["flx_lba_2ghz"] = lba_2ghz_flux
+        src["flx_lba_8ghz"] = lba_8ghz_flux
+        src["err_lba_2ghz"] = lba_2ghz_rms
+        src["err_lba_8ghz"] = lba_8ghz_rms
+
+        # ATCA: Adding the overall 2020 atca fluxes 
+        try:
+            t = Table.read(f"/data/LBA/catalogues/{tar}_atca.fits")
+            atca_flx = np.squeeze(np.array(t["ATCA"]))
+            atca_err = np.array(np.sqrt((0.05*atca_flx)**2 + (0.0004**2)))
+        except FileNotFoundError:
+            print(f"No catalogue for {tar} atca")
+            atca_flx = [np.nan * 17]
+            atca_err = atca_flx
+        atca_src = np.vstack((atca_flx,atca_err))
+        src["flx_atca_20"] = atca_flx
+        src["err_atca_20"] = atca_err
+
+        src_dict[lba_targets[i]] = src
+
+    return src_dict
