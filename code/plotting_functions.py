@@ -6,6 +6,7 @@ import cmasher as cmr
 import CFigTools.CustomFigure as CF
 import pandas as pd 
 from astropy.table import Table
+import json
 
 channel = ("69", "93", "121", "145", "169")
 subchans_dict = {
@@ -187,7 +188,7 @@ def plt_sed(
             src_dict["flx_atca_20"],
             src_dict["err_atca_20"],
             marker="o",
-            label="2020",
+            label="ATCA 2020",
             marker_color="k",
             s=s,
             alpha=0.5,
@@ -198,7 +199,11 @@ def plt_sed(
         print("Not plotting ATCA fluxes, check that you've read in the correct values")
     # Plotting the LBA points 
     lba_2ghz = src_dict["flx_lba_2ghz"]
+    lba_2ghz_sum = np.sum(lba_2ghz)
     err_lba_2ghz = src_dict["err_lba_2ghz"]
+    lba_8ghz = src_dict["flx_lba_8ghz"]
+    lba_8ghz_sum = np.sum(lba_8ghz)
+    err_lba_8ghz = src_dict["err_lba_8ghz"]
     try:
         for i in range(len(lba_2ghz)):
             f.plot_point(
@@ -212,8 +217,6 @@ def plt_sed(
                 elinewidth=elinewidth,
                 capsize=capsize,
             )
-        lba_8ghz = src_dict["flx_lba_8ghz"]
-        err_lba_8ghz = src_dict["err_lba_8ghz"]
         for i in range(len(lba_2ghz)):
             f.plot_point(
                 8.3,
@@ -226,9 +229,56 @@ def plt_sed(
                 elinewidth=elinewidth,
                 capsize=capsize,
             )
-    except TypeError or ValueError:
+    except ValueError:
         print("Not plotting LBA, check there is a catalogue to plot")
-        
+    except TypeError:
+        f.plot_point(
+            2.4,
+            lba_2ghz,
+            # err_lba_2ghz[i],
+            marker="o",
+            marker_color=lba_colors[-1],
+            s=s,
+            label="LBA",
+            # alpha=0.5,
+            elinewidth=elinewidth,
+            capsize=capsize,
+        )
+        f.plot_point(
+            8.3,
+            lba_8ghz,
+            # err_lba_8ghz[i],
+            marker="o",
+            marker_color=lba_colors[-1],
+            s=s,
+            # alpha=0.5,
+            elinewidth=elinewidth,
+            capsize=capsize,
+        )
+    f.plot_point(
+        2.4,
+        lba_2ghz_sum,
+        # err_lba_2ghz[i],
+        marker="X",
+        marker_color='k',
+        s=s,
+        label="integrated LBA",
+        # alpha=0.5,
+        elinewidth=elinewidth,
+        capsize=capsize,
+    )
+    f.plot_point(
+        8.3,
+        lba_8ghz_sum,
+        # err_lba_8ghz[i],
+        marker="X",
+        marker_color='k',
+        s=s,
+        # alpha=0.5,
+        elinewidth=elinewidth,
+        capsize=capsize,
+    )
+
     f.legend(loc="lower center", fontsize=fontsize)
     f.format(xunit="GHz",xlabelfontsize=xlabelfontsize, ylabelfontsize=ylabelfontsize, ticklabelfontsize=ticklabelfontsize,majorticklength=majorticklength, minorticklength=minorticklength, tickwidth=tickwidth)
     f.title(src_dict["MWA Name"], fontsize=titlefontsize)
@@ -400,5 +450,4 @@ def make_src_dict(lba_pop_pd, data_dir = "/data/LBA/catalogues/", lba_targets = 
         src["err_atca_20"] = atca_err
 
         src_dict[lba_targets[i]] = src
-
     return src_dict

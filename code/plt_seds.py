@@ -19,8 +19,8 @@ lba_pop_pd = plotting_functions.read_fluxes(mask_nms)
 
 # Created dictionary (src_dict) with array entries for each epoch/chunk of stuff 
 src_dict = plotting_functions.make_src_dict(lba_pop_pd)
-print(src_dict[lba_targets[0]].keys())
+# print(src_dict[lba_targets[0]].keys())
 
 # Plotting of SEDs for each of the srcs 
 for i in range(len(lba_targets)):
-    plotting_functions.plt_sed("/data/LBA/plots/",src_dict[lba_targets[i]],papersize=True)
+    plotting_functions.plt_sed("/data/LBA/plots/",src_dict[lba_targets[i]],papersize=False)
