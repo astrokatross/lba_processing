@@ -7,6 +7,8 @@ import CFigTools.CustomFigure as CF
 import pandas as pd 
 from astropy.table import Table
 import json
+import gpscssmodels
+from scipy.optimize import curve_fit
 
 channel = ("69", "93", "121", "145", "169")
 subchans_dict = {
@@ -22,6 +24,7 @@ epochs = ["2020-04", "2020-05", "2020-07", "2020-10"]
 def plt_sed(
     save_dir,
     src_dict,
+    model_params,
     papersize=True,
     colors=cmr.take_cmap_colors(
         "cmr.gothic", 8, cmap_range=(0.15, 0.8), return_fmt="hex"
@@ -84,8 +87,8 @@ def plt_sed(
             8.6,
             4.8,
             0.8875,
-            2.4,
-            8.3,
+            2.276875,
+            8.416875,
         ]
     ),
 ):
@@ -204,10 +207,29 @@ def plt_sed(
     lba_8ghz = src_dict["flx_lba_8ghz"]
     lba_8ghz_sum = np.sum(lba_8ghz)
     err_lba_8ghz = src_dict["err_lba_8ghz"]
+    for i in range(len(lba_2ghz)):
+        f.display_model(
+            np.linspace(0.01, 25, num=10000),
+            gpscssmodels.powlaw(np.linspace(0.01, 25, num=10000), *model_params[i]),
+            color=lba_colors[i]
+        )
+    f.display_model(
+        np.linspace(0.01, 25, num=10000),
+        gpscssmodels.powlaw(np.linspace(0.01, 25, num=10000), *model_params[-2]),
+        color='k',
+        alpha=0.8,
+    )
+    print(model_params[-1])
+    f.display_model(
+        np.linspace(0.01, 25, num=10000),
+        gpscssmodels.powlawbreak(np.linspace(0.01, 25, num=10000), *model_params[-1]),
+        color='k',
+        alpha=0.5,
+    )
     try:
         for i in range(len(lba_2ghz)):
             f.plot_point(
-                2.4,
+                frequency[-2],
                 lba_2ghz[i],
                 # err_lba_2ghz[i],
                 marker="o",
@@ -219,7 +241,7 @@ def plt_sed(
             )
         for i in range(len(lba_2ghz)):
             f.plot_point(
-                8.3,
+                frequency[-1],
                 lba_8ghz[i],
                 # err_lba_8ghz[i],
                 marker="o",
@@ -233,7 +255,7 @@ def plt_sed(
         print("Not plotting LBA, check there is a catalogue to plot")
     except TypeError:
         f.plot_point(
-            2.4,
+            frequency[-1],
             lba_2ghz,
             # err_lba_2ghz[i],
             marker="o",
@@ -245,7 +267,7 @@ def plt_sed(
             capsize=capsize,
         )
         f.plot_point(
-            8.3,
+            frequency[-2],
             lba_8ghz,
             # err_lba_8ghz[i],
             marker="o",
@@ -256,7 +278,7 @@ def plt_sed(
             capsize=capsize,
         )
     f.plot_point(
-        2.4,
+        frequency[-2],
         lba_2ghz_sum,
         # err_lba_2ghz[i],
         marker="X",
@@ -268,7 +290,7 @@ def plt_sed(
         capsize=capsize,
     )
     f.plot_point(
-        8.3,
+        frequency[-1],
         lba_8ghz_sum,
         # err_lba_8ghz[i],
         marker="X",
@@ -451,3 +473,11 @@ def make_src_dict(lba_pop_pd, data_dir = "/data/LBA/catalogues/", lba_targets = 
 
         src_dict[lba_targets[i]] = src
     return src_dict
+
+def fit_lba(fluxes, fit_function= gpscssmodels.powlaw, frequency=[2.276875,8.416875]):
+    if fit_function == gpscssmodels.powlawbreak:
+        p0 = [1.6,0.03,7]
+        params, _ = curve_fit(fit_function, frequency, fluxes, p0=p0)
+    else: 
+        params, _ = curve_fit(fit_function, frequency, fluxes)
+    return params 
