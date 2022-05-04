@@ -25,6 +25,7 @@ def plt_sed(
     save_dir,
     src_dict,
     model_params,
+    atca_model = gpscssmodels.powlawbreak,
     papersize=True,
     colors=cmr.take_cmap_colors(
         "cmr.gothic", 8, cmap_range=(0.15, 0.8), return_fmt="hex"
@@ -207,11 +208,18 @@ def plt_sed(
     lba_8ghz = src_dict["flx_lba_8ghz"]
     lba_8ghz_sum = np.sum(lba_8ghz)
     err_lba_8ghz = src_dict["err_lba_8ghz"]
-    for i in range(len(lba_2ghz)):
+    try:
+        for i in range(len(lba_2ghz)):
+            f.display_model(
+                np.linspace(0.01, 25, num=10000),
+                gpscssmodels.powlaw(np.linspace(0.01, 25, num=10000), *model_params[i]),
+                color=lba_colors[i]
+            )
+    except TypeError: 
         f.display_model(
             np.linspace(0.01, 25, num=10000),
-            gpscssmodels.powlaw(np.linspace(0.01, 25, num=10000), *model_params[i]),
-            color=lba_colors[i]
+            gpscssmodels.powlaw(np.linspace(0.01, 25, num=10000), *model_params[0]),
+            color=lba_colors[-1]
         )
     f.display_model(
         np.linspace(0.01, 25, num=10000),
@@ -219,10 +227,9 @@ def plt_sed(
         color='k',
         alpha=0.8,
     )
-    print(model_params[-1])
     f.display_model(
         np.linspace(0.01, 25, num=10000),
-        gpscssmodels.powlawbreak(np.linspace(0.01, 25, num=10000), *model_params[-1]),
+        atca_model(np.linspace(0.01, 25, num=10000), *model_params[-1]),
         color='k',
         alpha=0.5,
     )

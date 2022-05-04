@@ -21,7 +21,6 @@ src_dict = plotting_functions.make_src_dict(lba_pop_pd)
 
 # Plotting of SEDs for each of the srcs
 # TODO: Add the parameters to the src dictionary 
-# TODO: Add function for plot (multiple function options for each region)
 for i in range(len(lba_targets)):
     tar_dict = src_dict[lba_targets[i]]
     try:
@@ -63,13 +62,54 @@ for i in range(len(lba_targets)):
         print("Only one region to fit")
         try: 
             model_params = []
-            params = plotting_functions.fit_lba(
+            model_params.append(plotting_functions.fit_lba(
                 [tar_dict["flx_lba_2ghz"], tar_dict["flx_lba_8ghz"]]
-            )
-            model_params.append(params)
-            print(params)
+            ))
+            model_params.append(plotting_functions.fit_lba(
+                tar_dict["flx_atca_20"][8:17],
+                frequency=[
+                    4.71,
+                    5.090,
+                    5.500,
+                    5.910,
+                    6.320,
+                    8.732,
+                    9.245,
+                    9.758,
+                    10.269,
+                ],
+            ))
         except ValueError:
+            model_params.append([np.nan]*2)
+            model_params.append(plotting_functions.fit_lba(
+                tar_dict["flx_atca_20"],
+                fit_function=gpscssmodels.powlawbreak,
+                frequency=[
+                    1.33,
+                    1.407,
+                    1.638,
+                    1.869,
+                    2.1,
+                    2.331,
+                    2.562,
+                    2.793,
+                    4.71,
+                    5.090,
+                    5.500,
+                    5.910,
+                    6.320,
+                    8.732,
+                    9.245,
+                    9.758,
+                    10.269,
+                ],
+            ))
             print("NaN or inf for LBA fluxes, check I have something to fit")
-    plotting_functions.plt_sed("/data/LBA/plots/", tar_dict, model_params, papersize=False)
+            
+    if lba_targets[i]=="j0322-482":
+        atca_model = gpscssmodels.powlaw
+    else: 
+        atca_model = gpscssmodels.powlawbreak
+    plotting_functions.plt_sed("/data/LBA/plots/", tar_dict, model_params, atca_model, papersize=False)
 
     
